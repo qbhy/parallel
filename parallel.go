@@ -30,6 +30,7 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 			// 捕捉异常
 			defer func() {
 				if err := recover(); err != nil {
+					resultMutex.Lock()
 					results[key] = err
 					resultMutex.Unlock()
 				}
@@ -38,8 +39,10 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 				wg.Done()
 			}()
 
+			result := callback()
+
 			resultMutex.Lock()
-			results[key] = callback()
+			results[key] = result
 			resultMutex.Unlock()
 		}(key, callback)
 	}
@@ -48,6 +51,10 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 	p.Clear()
 
 	return
+}
+
+func (p *Parallel) Run() map[int]interface{} {
+	return p.Wait()
 }
 
 func (p *Parallel) Clear() {

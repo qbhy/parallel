@@ -33,3 +33,6 @@ func TestParallel(t *testing.T) {
 }
 ```
 > 也可以参考 `tests/parallel_test.go` 的代码
+
+https://github.com/qbhy/parallel  
+qbhy0715@qq.com

@@ -1,5 +1,5 @@
 # Parallel
-golang 协程并行库，可以指定并发数量
+golang 协程并行库，可以指定并发数量，可以当做简单的队列使用
 
 ## 安装 - installation
 ```bash

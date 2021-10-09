@@ -1,6 +1,9 @@
 package parallel
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 type Parallel struct {
 	Callbacks []func() interface{}
@@ -14,6 +17,11 @@ const (
 	NORMAL = iota
 	LISTENING
 	STOPPED
+	GRACEFUL_STOP
+)
+
+var (
+	StoppedError = errors.New("该 parallel 已经停止!")
 )
 
 func NewParallel(concurrent int) *Parallel {
@@ -24,13 +32,22 @@ func NewParallel(concurrent int) *Parallel {
 	}
 }
 
-func (p *Parallel) Add(callback func() interface{}) {
-	p.Callbacks = append(p.Callbacks, callback)
+func (this *Parallel) Add(callback func() interface{}) error {
+	if this.IsStopped() {
+		return StoppedError
+	} else {
+		this.Callbacks = append(this.Callbacks, callback)
+		return nil
+	}
 }
 
-func (p *Parallel) Wait() (results map[int]interface{}) {
-	queues := p.Callbacks
-	p.Clear()
+func (this *Parallel) IsStopped() bool {
+	return this.status == STOPPED || this.status == GRACEFUL_STOP
+}
+
+func (this *Parallel) Wait() (results map[int]interface{}) {
+	queues := this.Callbacks
+	this.Clear()
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(queues))
@@ -38,7 +55,7 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 
 	results = map[int]interface{}{}
 	for key, callback := range queues {
-		p.channel <- 0
+		this.channel <- 0
 		go func(key int, callback func() interface{}) {
 			// 捕捉异常
 			defer func() {
@@ -48,7 +65,7 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 					resultMutex.Unlock()
 				}
 
-				<-p.channel
+				<-this.channel
 				wg.Done()
 			}()
 
@@ -65,30 +82,30 @@ func (p *Parallel) Wait() (results map[int]interface{}) {
 	return
 }
 
-func (p *Parallel) Run() map[int]interface{} {
-	return p.Wait()
+func (this *Parallel) Run() map[int]interface{} {
+	return this.Wait()
 }
 
-func (p *Parallel) Stop() {
-	p.status = STOPPED
+func (this *Parallel) Stop() {
+	this.status = STOPPED
 }
 
-func (p *Parallel) Listen() (err error) {
-	p.status = LISTENING
+func (this *Parallel) GracefulStop() {
+	this.status = GRACEFUL_STOP
+}
+
+func (this *Parallel) Listen() (err error) {
+	this.status = LISTENING
+
 	defer func() {
-		if result := recover(); result != nil {
-			switch v := result.(type) {
-			case error:
-				err = v
-			}
-		} else {
-			p.Stop()
+		if this.status == GRACEFUL_STOP {
+			this.Wait()
 		}
 	}()
 
 	for {
-		if p.status == LISTENING {
-			p.Wait()
+		if this.status == LISTENING {
+			this.Wait()
 		} else {
 			break
 		}
@@ -97,6 +114,6 @@ func (p *Parallel) Listen() (err error) {
 	return err
 }
 
-func (p *Parallel) Clear() {
-	p.Callbacks = make([]func() interface{}, 0)
+func (this *Parallel) Clear() {
+	this.Callbacks = make([]func() interface{}, 0)
 }

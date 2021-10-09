@@ -36,13 +36,15 @@ func TestParallelListen(t *testing.T) {
 
 	go func() {
 		i := 0
-		for ; i < 100; i++ {
+		for ; i < 10; i++ {
 			(func(i int) {
-				p.Add(func() interface{} {
+				result := p.Add(func() interface{} {
 					time.Sleep(time.Second)
-					fmt.Println("每隔1秒执行一次", i)
+					fmt.Printf("每隔1秒执行一次 %d \n", i)
 					return nil
 				})
+
+				fmt.Printf("添加结果: %v, i: %d \n", result, i)
 			})(i)
 		}
 
@@ -59,10 +61,35 @@ func TestParallelListen(t *testing.T) {
 				})
 			})(i)
 
-			if i > 150 {
+			if i > 20 {
 				p.Stop()
 				break
 			}
+		}
+	}()
+
+	fmt.Println(p.Listen())
+}
+
+// 测试优雅退出
+func TestParallelGracefulStop(t *testing.T) {
+	p := parallel.NewParallel(2)
+
+	go func() {
+		i := 0
+		for ; i < 10; i++ {
+			(func(i int) {
+				if i >= 5 {
+					p.GracefulStop()
+				}
+				result := p.Add(func() interface{} {
+					time.Sleep(time.Second)
+					fmt.Printf("每隔1秒执行一次 %d \n", i)
+					return nil
+				})
+
+				fmt.Printf("添加结果: %v, i: %d\n", result, i)
+			})(i)
 		}
 	}()
 

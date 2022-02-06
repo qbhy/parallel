@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	StoppedError = errors.New("该 parallel 已经停止!")
+	StoppedError = errors.New("the process has stopped")
 )
 
 func NewParallel(concurrent int) *Parallel {
